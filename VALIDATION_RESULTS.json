@@ -1,0 +1,107 @@
+{
+  "date": "2026-10-25",
+  "upstream_base": "3f03b17724ad8b69040825f45c43c59b092a0244",
+  "environment": {
+    "os": "Windows",
+    "cpu": "Intel Core i9-14900HX",
+    "ram_gib_approx": 32,
+    "compiler": "LLVM-MinGW 20261020, Clang 23.1.4",
+    "cmake": "4.4.4",
+    "python": "3.13.7",
+    "build": {
+      "cpu_only": true,
+      "BUILD_SHARED_LIBS": false,
+      "LLAMA_OPENSSL": false,
+      "GGML_OPENMP": false,
+      "GGML_NATIVE": false,
+      "CMAKE_C_FLAGS": "-D_WIN32_WINNT=0x0A00",
+      "CMAKE_CXX_FLAGS": "-D_WIN32_WINNT=0x0A00"
+    },
+    "test_setup": "Original server fixtures with local pinned model paths; preset downloads disabled."
+  },
+  "models": [
+    {
+      "repo": "ggml-org/test-model-stories260K",
+      "revision": "479896ec924af6d40fd419ab8f4d1eb2101de00d",
+      "file": "stories260K-f32.gguf",
+      "bytes": 1185376,
+      "sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d"
+    },
+    {
+      "repo": "ggml-org/tinygemma3-GGUF",
+      "revision": "c287502cd9e278dac8eed805c112cce5d0081e0b",
+      "file": "tinygemma3-Q8_0.gguf",
+      "bytes": 47227552,
+      "sha256": "7566ae7219c93ea2ecc692a931ee122d30c55261d0e2c3347acb8b939d2e9abd"
+    }
+  ],
+  "unmodified_upstream_regression": {
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "failed_cases": [
+      "test_slot_save_preserves_linked_backup"
+    ]
+  },
+  "fixed_text_slot_suite": {
+    "tests": 15,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "failed_cases": []
+  },
+  "multimodal_cases_deselected": 6,
+  "component_suite": {
+    "tests": 41,
+    "assertions": 151,
+    "failures": 0,
+    "exceptions": 0,
+    "skipped": 0
+  },
+  "model_resolution_suite": "all tests OK",
+  "python_typecheck": "ty 0.0.88 passed for both changed Python files",
+  "text_style": "LF, final newlines and no trailing whitespace verified",
+  "process_restart_demo": {
+    "passed": true,
+    "backup_preserved": true,
+    "replacement_changed": true,
+    "save_pid": 14736,
+    "model_sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+    "checkpoint_bytes": 234364,
+    "restore_ms": 39.48400000081165,
+    "cold": {
+      "pid": 27292,
+      "content": ", \"I am sorr",
+      "first_token_ms": 29.207799999312556,
+      "round_trip_ms": 30.96949999962817,
+      "prompt_tokens_processed": 359,
+      "rss_bytes_after_request": 21835776
+    },
+    "resumed": {
+      "pid": 13096,
+      "content": ", \"I am sorr",
+      "first_token_ms": 21.86580000034155,
+      "round_trip_ms": 23.506800000177464,
+      "prompt_tokens_processed": 7,
+      "rss_bytes_after_request": 20111360
+    },
+    "note": "One small-model CPU run; timings are illustrative, not a performance claim."
+  },
+  "limits": [
+    "No full upstream CI",
+    "No GPU validation",
+    "No Linux or macOS validation",
+    "No large production model",
+    "No new power-loss durability guarantee",
+    "Small-model timings do not demonstrate a performance improvement"
+  ],
+  "sha256_lf_git_sources": {
+    "common/common.cpp": "e8420a16e1814a5aab84fda6dee0d3f85afa3f5de0a2ac18f6859e5440db7197",
+    "common/common.h": "37b967963e85f05b757f218752b5cad185d85808b231e1e155d606e6e1c6f58c",
+    "tools/server/server-context.cpp": "bb2a126fa783da146db15309119c84ccfdd8089e422ed7e7933db7a9963c4215",
+    "tests/test-server-component.cpp": "27e262ccddb74d6c556c6f61faa435b9a8a78996fbae9408ffe3ad9c27e162cf",
+    "tools/server/tests/unit/test_slot_save.py": "f2a174b3275543b9a6902230176f72db8bccb79028bcf673881e96f943004be7",
+    "examples/checkpoint_save.py": "119a8b9c4a7d2b0a64e14e1191be64298b3c34be560c45dd254d4ceb9a440b40"
+  }
+}

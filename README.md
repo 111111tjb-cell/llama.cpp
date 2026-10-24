@@ -1,5 +1,7 @@
 # llama.cpp
 
+> **Fork improvement: safe slot checkpoint replacement.** This fork writes a complete state file before replacing the previous checkpoint, preserves hard-link backups, and removes temporary files after ordinary save failures. See [the design, reproduction, and validation](FORK_NOTES.md) and the [three-process demo](examples/checkpoint_save.py).
+
 ![llama](https://raw.githubusercontent.com/ggml-org/llama.brand/refs/heads/master/cover/llama-cpp/cover-llama-cpp-dark.svg)
 
 <div align="center">
