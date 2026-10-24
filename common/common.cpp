@@ -917,7 +917,7 @@ std::string fs_path_to_utf8(const std::filesystem::path & path) {
     return std::string(value.begin(), value.end());
 }
 
-void fs_write_atomic(const std::filesystem::path & path, const std::string & data) {
+void fs_write_atomic(const std::filesystem::path & path, const std::function<void(const std::filesystem::path &)> & write_file) {
     // a random suffix gives every writer its own temporary file, across processes and containers
     std::random_device rd;
     const uint64_t id = ((uint64_t) rd() << 32) | rd();
@@ -930,18 +930,40 @@ void fs_write_atomic(const std::filesystem::path & path, const std::string & dat
         std::filesystem::create_directories(path.parent_path(), ec);
     }
 
-    std::ofstream file(path_tmp, std::ios::binary);
-    file << data;
-    file.close();
-
-    if (!file.fail()) {
+    try {
+        std::ofstream file(path_tmp, std::ios::binary);
+        file.close();
+        if (file.fail()) {
+            throw std::runtime_error("failed to create temporary file: " + fs_path_to_utf8(path_tmp));
+        }
+        const auto status = std::filesystem::status(path, ec);
+        if (std::filesystem::is_regular_file(status)) {
+            std::filesystem::permissions(path_tmp, status.permissions(), ec);
+            if (ec) {
+                throw std::runtime_error("failed to preserve file permissions: " + fs_path_to_utf8(path));
+            }
+        }
+        write_file(path_tmp);
         std::filesystem::rename(path_tmp, path, ec);
-    }
-
-    if (file.fail() || ec) {
+        if (ec) {
+            throw std::runtime_error("failed to replace file: " + fs_path_to_utf8(path));
+        }
+    } catch (...) {
+        std::filesystem::permissions(path_tmp, std::filesystem::perms::owner_write, std::filesystem::perm_options::add, ec);
         std::filesystem::remove(path_tmp, ec);
-        throw std::runtime_error("failed to write file: " + fs_path_to_utf8(path));
+        throw;
     }
+}
+
+void fs_write_atomic(const std::filesystem::path & path, const std::string & data) {
+    fs_write_atomic(path, [&data](const std::filesystem::path & path_tmp) {
+        std::ofstream file(path_tmp, std::ios::binary);
+        file << data;
+        file.close();
+        if (file.fail()) {
+            throw std::runtime_error("failed to write file: " + fs_path_to_utf8(path_tmp));
+        }
+    });
 }
 
 bool fs_is_directory(const std::string & path) {

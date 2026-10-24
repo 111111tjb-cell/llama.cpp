@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <cstdio>
 
 #if defined(_WIN32) && !defined(_WIN32_WINNT)
@@ -942,6 +943,7 @@ std::filesystem::path fs_get_cache_file(const std::string & filename);
 std::filesystem::path fs_get_config_directory();
 
 void fs_write_atomic(const std::filesystem::path & path, const std::string & data);
+void fs_write_atomic(const std::filesystem::path & path, const std::function<void(const std::filesystem::path &)> & write_file);
 
 //
 // TTY utils
