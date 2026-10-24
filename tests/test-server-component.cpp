@@ -4,6 +4,10 @@
 #include "../tools/server/server-decision.h"
 
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <random>
 #include <regex>
 #include <string>
 #include <thread>
@@ -464,6 +468,78 @@ static void test_rerank_template(testing & t) {
     }
 }
 
+static void test_slot_file_transaction(testing & t) {
+    namespace fs = std::filesystem;
+    std::random_device rd;
+    const auto dir = fs::temp_directory_path() / ("llama-slot-save-" + std::to_string(rd()) + "-" + std::to_string(rd()));
+    fs::create_directory(dir);
+    const auto path = dir / "slot.bin";
+    fs_write_atomic(path, std::string("previous checkpoint"));
+#ifndef _WIN32
+    fs::permissions(path, fs::perms::owner_read | fs::perms::owner_write);
+#endif
+    const auto permissions = fs::status(path).permissions();
+
+    auto read = [](const fs::path & file) {
+        std::ifstream in(file, std::ios::binary);
+        return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    };
+    auto count_files = [&dir]() {
+        return std::distance(fs::directory_iterator(dir), fs::directory_iterator());
+    };
+
+    bool failed = false;
+    try {
+        fs_write_atomic(path, [](const fs::path & temporary) {
+            std::ofstream out(temporary, std::ios::binary);
+            out << "partial checkpoint";
+            out.close();
+            throw std::runtime_error("injected appendix failure");
+        });
+    } catch (const std::runtime_error & err) {
+        failed = std::string(err.what()) == "injected appendix failure";
+    }
+    t.assert_true("failed save reports the writer error", failed);
+    t.assert_equal("failed save preserves previous data", std::string("previous checkpoint"), read(path));
+    t.assert_equal("failed save removes temporary file", (ptrdiff_t) 1, count_files());
+
+    fs_write_atomic(path, [&path, &read, &t](const fs::path & temporary) {
+        t.assert_equal("old data remains visible while writing", std::string("previous checkpoint"), read(path));
+        std::ofstream out(temporary, std::ios::binary);
+        out << "complete checkpoint";
+    });
+    t.assert_equal("complete save replaces previous data", std::string("complete checkpoint"), read(path));
+    t.assert_equal("complete save leaves no temporary file", (ptrdiff_t) 1, count_files());
+    t.assert_true("complete save preserves file permissions", fs::status(path).permissions() == permissions);
+
+    const auto blocked = dir / "blocked";
+    fs::create_directory(blocked);
+    fs_write_atomic(blocked / "keep.bin", std::string("keep"));
+    failed = false;
+    try {
+        fs_write_atomic(blocked, std::string("cannot replace a directory"));
+    } catch (const std::runtime_error &) {
+        failed = true;
+    }
+    t.assert_true("failed rename reports an error", failed);
+    t.assert_equal("failed rename preserves destination", std::string("keep"), read(blocked / "keep.bin"));
+    t.assert_equal("failed rename removes temporary file", (ptrdiff_t) 2, count_files());
+#ifdef _WIN32
+    fs::permissions(path, fs::perms::owner_read);
+    failed = false;
+    try {
+        fs_write_atomic(path, std::string("cannot overwrite a read-only file"));
+    } catch (const std::runtime_error &) {
+        failed = true;
+    }
+    t.assert_true("read-only destination reports an error", failed);
+    t.assert_equal("read-only destination is unchanged", std::string("complete checkpoint"), read(path));
+    t.assert_equal("read-only temporary file is removed", (ptrdiff_t) 2, count_files());
+    fs::permissions(path, fs::perms::owner_read | fs::perms::owner_write);
+#endif
+    fs::remove_all(dir);
+}
+
 int main(int argc, char ** argv) {
     testing t;
 
@@ -484,6 +560,7 @@ int main(int argc, char ** argv) {
     t.test("server_pipe",   test_server_pipe);
     t.test("decision_escape", test_decision_escape);
     t.test("rerank_template", test_rerank_template);
+    t.test("slot_file_transaction", test_slot_file_transaction);
 
     return t.summary();
 }
