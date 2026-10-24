@@ -3167,23 +3167,28 @@ private:
                     }
 
                     GGML_ASSERT(packed.size() % sizeof(llama_token) == 0);
-                    const size_t nwrite = llama_state_seq_save_file(
-                        ctx_tgt, filepath.c_str(), slot->id,
-                        reinterpret_cast<const llama_token *>(packed.data()), packed.size() / sizeof(llama_token));
-                    if (nwrite == 0) {
-                        send_error(task, "Unable to save slot", ERROR_TYPE_SERVER);
-                        break;
-                    }
-
+                    size_t nwrite = 0;
                     size_t nwrite_ckpt = 0;
-                    if (!save_slot_checkpoints(filepath, *slot, nwrite_ckpt)) {
-                        send_error(task, "Unable to save slot: incomplete context checkpoints", ERROR_TYPE_SERVER);
-                        break;
-                    }
-
                     size_t nwrite_dft = 0;
-                    if (!save_slot_draft(filepath, *slot, nwrite_dft)) {
-                        send_error(task, "Unable to save slot: incomplete draft state", ERROR_TYPE_SERVER);
+                    try {
+                        // Publish the state and all appendices together; failed saves keep the previous file.
+                        fs_write_atomic(std::filesystem::u8path(filepath), [&](const std::filesystem::path & path_tmp) {
+                            const std::string temporary = fs_path_to_utf8(path_tmp);
+                            nwrite = llama_state_seq_save_file(
+                                ctx_tgt, temporary.c_str(), slot->id,
+                                reinterpret_cast<const llama_token *>(packed.data()), packed.size() / sizeof(llama_token));
+                            if (nwrite == 0) {
+                                throw std::runtime_error("Unable to save slot");
+                            }
+                            if (!save_slot_checkpoints(temporary, *slot, nwrite_ckpt)) {
+                                throw std::runtime_error("Unable to save slot: incomplete context checkpoints");
+                            }
+                            if (!save_slot_draft(temporary, *slot, nwrite_dft)) {
+                                throw std::runtime_error("Unable to save slot: incomplete draft state");
+                            }
+                        });
+                    } catch (const std::exception & err) {
+                        send_error(task, err.what(), ERROR_TYPE_SERVER);
                         break;
                     }
 
