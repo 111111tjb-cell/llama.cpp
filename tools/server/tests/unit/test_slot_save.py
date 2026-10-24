@@ -79,6 +79,47 @@ def test_slot_save_restore():
     assert res.body["timings"]["prompt_n"] == 1
 
 
+def test_slot_save_preserves_linked_backup():
+    global server
+    server.n_predict = 8
+    server.start()
+
+    res = server.make_request("POST", "/completion", data={
+        "prompt": "What is the capital of France?",
+        "id_slot": 0,
+        "cache_prompt": True,
+    })
+    assert res.status_code == 200
+    res = server.make_request("POST", "/slots/0?action=save", data={"filename": "current.bin"})
+    assert res.status_code == 200
+    n_saved = res.body["n_saved"]
+
+    current = os.path.join(server.slot_save_path, "current.bin")
+    backup = os.path.join(server.slot_save_path, "backup.bin")
+    with open(current, "rb") as f:
+        original = f.read()
+    os.link(current, backup)
+
+    res = server.make_request("POST", "/completion", data={
+        "prompt": "Tell me a story about a dragon.",
+        "id_slot": 0,
+        "cache_prompt": True,
+    })
+    assert res.status_code == 200
+    res = server.make_request("POST", "/slots/0?action=save", data={"filename": "current.bin"})
+    assert res.status_code == 200
+    with open(current, "rb") as f:
+        assert f.read() != original
+    with open(backup, "rb") as f:
+        assert f.read() == original
+
+    res = server.make_request("POST", "/slots/1?action=restore", data={"filename": "backup.bin"})
+    assert res.status_code == 200
+    assert res.body["n_restored"] == n_saved
+    assert res.body["n_read"] == len(original)
+    assert sorted(os.listdir(server.slot_save_path)) == ["backup.bin", "current.bin"]
+
+
 def test_slot_restore_legacy_token_list():
     global server
     server.start()
